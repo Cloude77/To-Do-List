@@ -10,20 +10,40 @@ import (
 )
 
 func main() {
-	router := mux.NewRouter() // Создаем новый роутер
+	router := mux.NewRouter()
 
-	// Определяем маршруты
-	router.HandleFunc("/tasks", handlers.GetTasks).Methods("GET")           // Получить все задачи
-	router.HandleFunc("/tasks/{id}", handlers.GetTaskByID).Methods("GET")   // Получить задачу по ID
-	router.HandleFunc("/tasks", handlers.CreateTask).Methods("POST")        // Создать новую задачу
-	router.HandleFunc("/tasks/{id}", handlers.UpdateTask).Methods("PUT")    // Обновить задачу
-	router.HandleFunc("/tasks/{id}", handlers.DeleteTask).Methods("DELETE") // Удалить задачу
+	// Добавляем CORS middleware
+	router.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			next.ServeHTTP(w, r)
+		})
+	})
 
-	// Запускаем сервер на порту 8080
+	// API routes
+	router.HandleFunc("/tasks", handlers.GetTasks).Methods("GET")
+	router.HandleFunc("/tasks/{id}", handlers.GetTaskByID).Methods("GET")
+	router.HandleFunc("/tasks", handlers.CreateTask).Methods("POST")
+	router.HandleFunc("/tasks/{id}", handlers.UpdateTask).Methods("PUT")
+	router.HandleFunc("/tasks/{id}", handlers.DeleteTask).Methods("DELETE")
+
+	// Static files
+	fs := http.FileServer(http.Dir("static"))
+	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", fs))
+
+	// Home page
+	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "static/index.html")
+	})
+
+	// Start server
 	go func() {
 		log.Println("Server is running on port 8080...")
 		log.Fatal(http.ListenAndServe(":8080", router))
 	}()
-	// Запускаем CLI
+
+	// Start CLI
 	cli.RunCLI()
 }

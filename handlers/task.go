@@ -4,35 +4,42 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/gorilla/mux"
 )
 
-// Task представляет одну задачу в списке дел
 type Task struct {
-	ID    int    `json:"id"`    // Уникальный идентификатор задачи
-	Title string `json:"title"` // Название задачи
-	Done  bool   `json:"done"`  // Статус выполнения задачи
+	ID    int    `json:"id"`
+	Title string `json:"title"`
+	Done  bool   `json:"done"`
 }
 
-var tasks []Task  // Хранилище задач (в памяти)
-var currentID = 1 // Глобальный счетчик для генерации уникальных ID
+var (
+	tasks     []Task
+	currentID = 1
+	mu        sync.Mutex
+)
 
-// GetTasks возвращает все задачи
 func GetTasks(w http.ResponseWriter, r *http.Request) {
+	mu.Lock()
+	defer mu.Unlock()
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(tasks)
 }
 
-// GetTaskByID возвращает задачу по ID
 func GetTaskByID(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	params := mux.Vars(r) // Получаем параметры из URL
+	mu.Lock()
+	defer mu.Unlock()
+
+	params := mux.Vars(r)
 	id, err := strconv.Atoi(params["id"])
 	if err != nil {
 		http.Error(w, "Invalid task ID", http.StatusBadRequest)
 		return
 	}
+
 	for _, task := range tasks {
 		if task.ID == id {
 			json.NewEncoder(w).Encode(task)
@@ -42,36 +49,41 @@ func GetTaskByID(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "Task not found", http.StatusNotFound)
 }
 
-// CreateTask создает новую задачу
 func CreateTask(w http.ResponseWriter, r *http.Request) {
+	mu.Lock()
+	defer mu.Unlock()
+
 	w.Header().Set("Content-Type", "application/json")
 	var newTask Task
-	err := json.NewDecoder(r.Body).Decode(&newTask)
-	if err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&newTask); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+
 	newTask.ID = currentID
 	currentID++
 	tasks = append(tasks, newTask)
+	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(newTask)
 }
 
-// UpdateTask обновляет существующую задачу
 func UpdateTask(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	mu.Lock()
+	defer mu.Unlock()
+
 	params := mux.Vars(r)
 	id, err := strconv.Atoi(params["id"])
 	if err != nil {
 		http.Error(w, "Invalid task ID", http.StatusBadRequest)
 		return
 	}
+
 	var updatedTask Task
-	err = json.NewDecoder(r.Body).Decode(&updatedTask)
-	if err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&updatedTask); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+
 	for i, task := range tasks {
 		if task.ID == id {
 			updatedTask.ID = id
@@ -83,21 +95,74 @@ func UpdateTask(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "Task not found", http.StatusNotFound)
 }
 
-// DeleteTask удаляет задачу по ID
 func DeleteTask(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	mu.Lock()
+	defer mu.Unlock()
+
 	params := mux.Vars(r)
 	id, err := strconv.Atoi(params["id"])
 	if err != nil {
 		http.Error(w, "Invalid task ID", http.StatusBadRequest)
 		return
 	}
+
 	for i, task := range tasks {
 		if task.ID == id {
 			tasks = append(tasks[:i], tasks[i+1:]...)
-			w.WriteHeader(http.StatusNoContent)
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
 			return
 		}
 	}
 	http.Error(w, "Task not found", http.StatusNotFound)
+}
+
+// CLI functions
+func GetTasksSlice() []Task {
+	mu.Lock()
+	defer mu.Unlock()
+	return tasks
+}
+
+func AddTask(title string, done bool) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	newTask := Task{
+		ID:    currentID,
+		Title: title,
+		Done:  done,
+	}
+	currentID++
+	tasks = append(tasks, newTask)
+}
+
+func UpdateTaskByID(id int, title string, done bool) bool {
+	mu.Lock()
+	defer mu.Unlock()
+
+	for i, task := range tasks {
+		if task.ID == id {
+			tasks[i] = Task{
+				ID:    id,
+				Title: title,
+				Done:  done,
+			}
+			return true
+		}
+	}
+	return false
+}
+
+func DeleteTaskByID(id int) bool {
+	mu.Lock()
+	defer mu.Unlock()
+
+	for i, task := range tasks {
+		if task.ID == id {
+			tasks = append(tasks[:i], tasks[i+1:]...)
+			return true
+		}
+	}
+	return false
 }
