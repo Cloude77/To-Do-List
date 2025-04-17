@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>To-Do List</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="container">
+    <h1>To-Do List</h1>
+
+    <!-- Форма для добавления задачи -->
+    <form id="add-task-form">
+        <input type="text" id="task-title" placeholder="Название задачи" required>
+        <button type="submit">Добавить задачу</button>
+    </form>
+
+    <!-- Таблица для отображения задач -->
+    <table id="tasks-table">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Название</th>
+            <th>Статус</th>
+            <th>Действия</th>
+        </tr>
+        </thead>
+        <tbody>
+        <!-- Задачи будут добавляться сюда -->
+        </tbody>
+    </table>
+
+    <!-- Модальное окно для обновления задачи -->
+    <div id="update-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Обновить задачу</h2>
+            <form id="update-task-form">
+                <input type="hidden" id="update-task-id">
+                <input type="text" id="update-task-title" placeholder="Название задачи" required>
+                <label>
+                    <input type="checkbox" id="update-task-done">
+                    Выполнено
+                </label>
+                <button type="submit">Обновить</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="/static/script.js"></script>
+</body>
+</html>
